@@ -8,6 +8,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 
 import com.vaadin.annotations.Push;
 import com.vaadin.annotations.Theme;
+import com.vaadin.annotations.Widgetset;
 import com.vaadin.server.ExternalResource;
 import com.vaadin.server.Page;
 import com.vaadin.server.VaadinRequest;
@@ -30,6 +31,7 @@ import lombok.extern.slf4j.Slf4j;
 @SpringUI
 @Theme("valo")
 @Push
+@Widgetset("ch.bergturbenthal.home.ui.WidgetSet")
 public class VaadinUi extends UI {
     @Autowired
     private SpringNavigator    springNavigator;

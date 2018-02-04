@@ -88,7 +88,7 @@ public class DefaultTinkerforgeDiscovery implements TinkerforgeDiscovery {
                             (uid, connectedUid, position, hardwareVersion, firmwareVersion, deviceIdentifier, enumerationType) -> {
 
                                 if (enumerationType == IPConnection.ENUMERATION_TYPE_DISCONNECTED) {
-                                    final TIdentity identity = new TIdentity(uid, uid, position, hardwareVersion[0], hardwareVersion[1],
+                                    final TIdentity identity = new TIdentity(hostAddress, uid, uid, position, hardwareVersion[0], hardwareVersion[1],
                                             hardwareVersion[2], firmwareVersion[0], firmwareVersion[1], firmwareVersion[2], deviceIdentifier);
                                     final Map<TIdentity, Device> dataBefore = connection.getDevices().getAndUpdate(m -> {
                                         final Map<TIdentity, Device> newMap = new HashMap<>(m);
@@ -104,7 +104,7 @@ public class DefaultTinkerforgeDiscovery implements TinkerforgeDiscovery {
                                 } else {
                                     try {
                                         final Device device = DeviceFactory.createDevice(deviceIdentifier, uid, ipConnection);
-                                        final TIdentity identity = TIdentity.fromIdentity(device.getIdentity());
+                                        final TIdentity identity = TIdentity.fromIdentity(device.getIdentity(), hostAddress);
                                         final Map<TIdentity, Device> devicesBefore = connection.getDevices().getAndUpdate(m -> {
                                             final Map<TIdentity, Device> newMap = new HashMap<>(m);
                                             newMap.put(identity, device);
@@ -176,7 +176,7 @@ public class DefaultTinkerforgeDiscovery implements TinkerforgeDiscovery {
         }
     }
 
-    @Scheduled(fixedDelay = 5 * 1000, initialDelay = 1000)
+    @Scheduled(fixedDelay = 60 * 1000, initialDelay = 1000)
     public void scanNewEndpoints() throws IOException {
         log.info("Start probe");
         for (final String discoveryAddress : properties.getDiscovery()) {

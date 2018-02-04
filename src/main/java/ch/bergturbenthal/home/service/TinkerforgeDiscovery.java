@@ -1,5 +1,7 @@
 package ch.bergturbenthal.home.service;
 
+import java.net.InetAddress;
+
 import com.tinkerforge.Device;
 import com.tinkerforge.Device.Identity;
 
@@ -25,21 +27,22 @@ public interface TinkerforgeDiscovery {
 
     @Value
     public static class TIdentity {
-        public static TIdentity fromIdentity(final Identity id) {
-            return new TIdentity(id.uid, id.connectedUid, id.position, id.hardwareVersion[0], id.hardwareVersion[1], id.hardwareVersion[2],
-                    id.firmwareVersion[0], id.firmwareVersion[1], id.firmwareVersion[2], id.deviceIdentifier);
+        public static TIdentity fromIdentity(final Identity id, final InetAddress connectionAddress) {
+            return new TIdentity(connectionAddress, id.uid, id.connectedUid, id.position, id.hardwareVersion[0], id.hardwareVersion[1],
+                    id.hardwareVersion[2], id.firmwareVersion[0], id.firmwareVersion[1], id.firmwareVersion[2], id.deviceIdentifier);
         }
 
-        private String uid;
-        private String connectedUid;
-        private char   position;
-        private short  hardwareVersion0;
-        private short  hardwareVersion1;
-        private short  hardwareVersion2;
-        private short  firmwareVersion0;
-        private short  firmwareVersion1;
-        private short  firmwareVersion2;
-        private int    deviceIdentifier;
+        private InetAddress connectionAddress;
+        private String      uid;
+        private String      connectedUid;
+        private char        position;
+        private short       hardwareVersion0;
+        private short       hardwareVersion1;
+        private short       hardwareVersion2;
+        private short       firmwareVersion0;
+        private short       firmwareVersion1;
+        private short       firmwareVersion2;
+        private int         deviceIdentifier;
 
         public String getFwVersion() {
             return firmwareVersion0 + "." + firmwareVersion1 + "." + firmwareVersion2;
