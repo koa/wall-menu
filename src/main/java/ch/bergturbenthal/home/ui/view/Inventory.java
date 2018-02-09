@@ -1,11 +1,13 @@
 package ch.bergturbenthal.home.ui.view;
 
+import java.awt.GraphicsEnvironment;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
+import java.util.function.Function;
 
 import com.tinkerforge.BrickletOLED128x64;
 import com.tinkerforge.Device;
@@ -30,6 +32,7 @@ import ch.bergturbenthal.home.service.TinkerforgeDiscovery;
 import ch.bergturbenthal.home.service.TinkerforgeDiscovery.TIdentity;
 import ch.bergturbenthal.home.service.impl.Oled128x64Display;
 import ch.bergturbenthal.home.service.impl.TableTextDisplayRenderer;
+import ch.bergturbenthal.home.service.impl.TableTextDisplayRenderer.DisplayText;
 import ch.bergturbenthal.home.service.impl.TableTextDisplayRenderer.LeftRightTextRow;
 import ch.bergturbenthal.home.service.impl.TableTextDisplayRenderer.TextRenderer;
 import ch.bergturbenthal.home.service.impl.TableTextDisplayRenderer.TextRow;
@@ -61,6 +64,25 @@ public class Inventory extends CustomComponent implements View {
         foundComponentsGrid.addColumn(i -> i.getConnectionAddress().getHostAddress()).setCaption("Connection");
 
         final GridContextMenu<TIdentity> contextMenu = new GridContextMenu<>(foundComponentsGrid);
+        final Map<TIdentity, TableTextDisplayRenderer> renderers = new HashMap<>();
+        final Function<TIdentity, TableTextDisplayRenderer> rendererOfItem = item -> {
+            return renderers.computeIfAbsent(item, k -> new TableTextDisplayRenderer(new TextRenderer() {
+
+                @Override
+                public List<TextRow> renderText(final int maxRowCount) {
+                    return Arrays.<TextRow> asList(
+                            LeftRightTextRow.builder().leftAfterAlign(DisplayText.plainText("UID")).rightAfterAlign(DisplayText.boldText(k.getUid()))
+                                    .build(),
+                            LeftRightTextRow.builder().leftAfterAlign(DisplayText.plainText("HW"))
+                                    .rightAfterAlign(DisplayText.boldText(k.getHwVersion())).build(),
+                            LeftRightTextRow.builder().leftAfterAlign(DisplayText.plainText("FW"))
+                                    .rightAfterAlign(DisplayText.boldText(k.getFwVersion())).build(),
+                            LeftRightTextRow.builder().leftAfterAlign(DisplayText.plainText("IP"))
+                                    .rightAfterAlign(DisplayText.boldText(k.getConnectionAddress().getHostAddress())).build(),
+                            LeftRightTextRow.builder().leftAfterAlign(DisplayText.plainText("Hello world")).build());
+                }
+            }));
+        };
 
         contextMenu.addContextMenuOpenListener(new ContextMenuOpenListener() {
             @Override
@@ -77,22 +99,27 @@ public class Inventory extends CustomComponent implements View {
                     final BrickletOLED128x64 oledDevice = (BrickletOLED128x64) device;
                     final Oled128x64Display display = new Oled128x64Display(oledDevice);
                     menu.addItem("Identify", selectedItem -> {
-                        final TextRenderer textRenderer = new TextRenderer() {
-
-                            @Override
-                            public List<TextRow> renderText(final int maxRowCount) {
-                                return Arrays.<TextRow> asList(
-                                        LeftRightTextRow.builder().leftAfterAlign("UID").rightAfterAlign(item.getUid()).build(),
-                                        LeftRightTextRow.builder().leftAfterAlign("HW").rightAfterAlign(item.getHwVersion()).build(),
-                                        LeftRightTextRow.builder().leftAfterAlign("FW").rightAfterAlign(item.getFwVersion()).build(), LeftRightTextRow
-                                                .builder().leftAfterAlign("IP").rightAfterAlign(item.getConnectionAddress().getHostAddress()).build(),
-                                        LeftRightTextRow.builder().leftAfterAlign("Hello world").build());
-                            }
-                        };
-                        final TableTextDisplayRenderer renderer = new TableTextDisplayRenderer(textRenderer);
-                        renderer.setFontSize(12);
+                        final TableTextDisplayRenderer renderer = rendererOfItem.apply(item);
                         display.draw(renderer);
                     });
+                    final MenuItem fontMenu = menu.addItem("Font", null);
+                    for (final String fontName : GraphicsEnvironment.getLocalGraphicsEnvironment().getAvailableFontFamilyNames()) {
+                        fontMenu.addItem(fontName, selectedItem -> {
+                            final TableTextDisplayRenderer renderer = rendererOfItem.apply(item);
+                            renderer.setFontName(fontName);
+                            display.draw(renderer);
+                        });
+                    }
+
+                    final MenuItem fontSizeMenu = menu.addItem("Font-Size", null);
+                    for (int i = 8; i < 20; i++) {
+                        final int fontSize = i;
+                        fontSizeMenu.addItem("" + i, selectedItem -> {
+                            final TableTextDisplayRenderer renderer = rendererOfItem.apply(item);
+                            renderer.setFontSize(fontSize);
+                            display.draw(renderer);
+                        });
+                    }
                     final MenuItem brightnessMenu = menu.addItem("Brightness", null);
                     for (int i = 0; i < 10; i++) {
                         final short br = (short) (i * 256 / 10);

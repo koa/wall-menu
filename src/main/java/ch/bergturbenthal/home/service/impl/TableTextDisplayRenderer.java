@@ -3,7 +3,10 @@ package ch.bergturbenthal.home.service.impl;
 import java.awt.Font;
 import java.awt.FontMetrics;
 import java.awt.Graphics2D;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.function.Function;
 
 import ch.bergturbenthal.home.service.Display;
 import lombok.Builder;
@@ -11,14 +14,28 @@ import lombok.Setter;
 import lombok.Value;
 
 public class TableTextDisplayRenderer implements Display.DisplayRenderer {
+    @Value
+    @Builder
+    public static class DisplayText {
+        public static DisplayText boldText(final String text) {
+            return DisplayText.builder().text(text).style(Font.BOLD).build();
+        }
+
+        public static DisplayText plainText(final String text) {
+            return DisplayText.builder().text(text).build();
+        }
+
+        private String text;
+        private int    style;
+    }
 
     @Value
     @Builder
     public static class LeftRightTextRow implements TextRow {
-        private String leftBeforeAlign;
-        private String leftAfterAlign;
-        private String rightBeforeAlign;
-        private String rightAfterAlign;
+        private DisplayText leftBeforeAlign;
+        private DisplayText leftAfterAlign;
+        private DisplayText rightBeforeAlign;
+        private DisplayText rightAfterAlign;
     }
 
     public static interface TextRenderer {
@@ -31,7 +48,8 @@ public class TableTextDisplayRenderer implements Display.DisplayRenderer {
 
     @Setter
     private int                fontSize = 10;
-    private final Font         baseFont = new Font(Font.SANS_SERIF, 0, 10);
+    @Setter
+    private String             fontName = null;
     private final TextRenderer textRenderer;
 
     public TableTextDisplayRenderer(final TextRenderer textRenderer) {
@@ -40,20 +58,24 @@ public class TableTextDisplayRenderer implements Display.DisplayRenderer {
 
     @Override
     public void render(final Graphics2D graphics, final int width, final int height) {
-        final Font displayFont = baseFont.deriveFont(baseFont.getStyle(), fontSize);
-        graphics.setFont(displayFont);
-        final FontMetrics fontMetrics = graphics.getFontMetrics();
-        final int minLineHeight = fontMetrics.getHeight();
+        final Map<Integer, Font> fonts = new HashMap<>();
+        final Function<Integer, Font> getFont = style -> fonts.computeIfAbsent(style, k -> new Font(fontName, k, fontSize));
+        final Map<Integer, FontMetrics> fontMetrics = new HashMap<>();
+        final Function<Integer, FontMetrics> getFontMetrics = style -> fontMetrics.computeIfAbsent(style,
+                k -> graphics.getFontMetrics(getFont.apply(k)));
+        final FontMetrics plainFontMetrics = getFontMetrics.apply(Font.PLAIN);
+        final int minLineHeight = plainFontMetrics.getHeight();
         final int lineCount = Math.max(height / minLineHeight, 1);
         final int lineHeight;
         final int firstRowPos;
         if (lineCount > 1) {
-            firstRowPos = fontMetrics.getAscent();
+            firstRowPos = plainFontMetrics.getAscent();
             final int lineSpaceCount = lineCount - 1;
-            final int blankSpace = height - (fontMetrics.getAscent() + fontMetrics.getDescent() + lineSpaceCount * fontMetrics.getHeight());
-            lineHeight = fontMetrics.getHeight() + blankSpace / lineSpaceCount;
+            final int blankSpace = height
+                    - (plainFontMetrics.getAscent() + plainFontMetrics.getDescent() + lineSpaceCount * plainFontMetrics.getHeight());
+            lineHeight = plainFontMetrics.getHeight() + blankSpace / lineSpaceCount;
         } else {
-            firstRowPos = fontMetrics.getAscent() + height - (fontMetrics.getAscent() + fontMetrics.getDescent()) / 2;
+            firstRowPos = plainFontMetrics.getAscent() + height - (plainFontMetrics.getAscent() + plainFontMetrics.getDescent()) / 2;
             lineHeight = 0;
         }
         final List<TextRow> lines = textRenderer.renderText(lineCount);
@@ -61,22 +83,24 @@ public class TableTextDisplayRenderer implements Display.DisplayRenderer {
             return;
         }
 
+        final Function<DisplayText, Integer> stringWithFunction = text -> getFontMetrics.apply(text.getStyle()).stringWidth(text.getText());
+
         // calculate spaces
         int leftMaxSpace = 0;
         int rightMaxSpace = 0;
         for (final TextRow textRow : lines) {
             if (textRow instanceof LeftRightTextRow) {
                 final LeftRightTextRow leftRightTextRow = (LeftRightTextRow) textRow;
-                final String leftBeforeAlign = leftRightTextRow.getLeftBeforeAlign();
+                final DisplayText leftBeforeAlign = leftRightTextRow.getLeftBeforeAlign();
                 if (leftBeforeAlign != null) {
-                    final int stringWidth = fontMetrics.stringWidth(leftBeforeAlign);
+                    final int stringWidth = stringWithFunction.apply(leftBeforeAlign);
                     if (stringWidth > leftMaxSpace) {
                         leftMaxSpace = stringWidth;
                     }
                 }
-                final String rightAfterAlign = leftRightTextRow.getRightAfterAlign();
+                final DisplayText rightAfterAlign = leftRightTextRow.getRightAfterAlign();
                 if (rightAfterAlign != null) {
-                    final int stringWidth = fontMetrics.stringWidth(rightAfterAlign);
+                    final int stringWidth = stringWithFunction.apply(rightAfterAlign);
                     if (stringWidth > rightMaxSpace) {
                         rightMaxSpace = stringWidth;
                     }
@@ -90,23 +114,27 @@ public class TableTextDisplayRenderer implements Display.DisplayRenderer {
 
             if (textRow instanceof LeftRightTextRow) {
                 final LeftRightTextRow leftRightTextRow = (LeftRightTextRow) textRow;
-                final String leftBeforeAlign = leftRightTextRow.getLeftBeforeAlign();
+                final DisplayText leftBeforeAlign = leftRightTextRow.getLeftBeforeAlign();
                 if (leftBeforeAlign != null) {
-                    final int stringWidth = fontMetrics.stringWidth(leftBeforeAlign);
-                    graphics.drawString(leftBeforeAlign, leftMaxSpace - stringWidth, y);
+                    final int stringWidth = stringWithFunction.apply(leftBeforeAlign);
+                    graphics.setFont(getFont.apply(leftBeforeAlign.getStyle()));
+                    graphics.drawString(leftBeforeAlign.getText(), leftMaxSpace - stringWidth, y);
                 }
-                final String leftAfterAlign = leftRightTextRow.getLeftAfterAlign();
+                final DisplayText leftAfterAlign = leftRightTextRow.getLeftAfterAlign();
                 if (leftAfterAlign != null) {
-                    graphics.drawString(leftAfterAlign, leftMaxSpace, y);
+                    graphics.setFont(getFont.apply(leftAfterAlign.getStyle()));
+                    graphics.drawString(leftAfterAlign.getText(), leftMaxSpace, y);
                 }
-                final String rightBeforeAlign = leftRightTextRow.getRightBeforeAlign();
+                final DisplayText rightBeforeAlign = leftRightTextRow.getRightBeforeAlign();
                 if (rightBeforeAlign != null) {
-                    final int stringWidth = fontMetrics.stringWidth(rightBeforeAlign);
-                    graphics.drawString(rightBeforeAlign, width - rightMaxSpace - stringWidth, y);
+                    final int stringWidth = stringWithFunction.apply(rightBeforeAlign);
+                    graphics.setFont(getFont.apply(rightBeforeAlign.getStyle()));
+                    graphics.drawString(rightBeforeAlign.getText(), width - rightMaxSpace - stringWidth, y);
                 }
-                final String rightAfterAlign = leftRightTextRow.getRightAfterAlign();
+                final DisplayText rightAfterAlign = leftRightTextRow.getRightAfterAlign();
                 if (rightAfterAlign != null) {
-                    graphics.drawString(rightAfterAlign, width - rightMaxSpace, y);
+                    graphics.setFont(getFont.apply(rightAfterAlign.getStyle()));
+                    graphics.drawString(rightAfterAlign.getText(), width - rightMaxSpace, y);
                 }
             }
         }
