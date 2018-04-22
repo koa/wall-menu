@@ -1,5 +1,6 @@
 package ch.bergturbenthal.home.service.impl;
 
+import java.awt.Color;
 import java.awt.Font;
 import java.awt.FontMetrics;
 import java.awt.Graphics2D;
@@ -8,12 +9,12 @@ import java.util.List;
 import java.util.Map;
 import java.util.function.Function;
 
-import ch.bergturbenthal.home.service.Display;
+import ch.bergturbenthal.home.display.DisplayContent;
 import lombok.Builder;
 import lombok.Setter;
 import lombok.Value;
 
-public class TableTextDisplayRenderer implements Display.DisplayRenderer {
+public class TableTextDisplayContent implements DisplayContent {
     @Value
     @Builder
     public static class DisplayText {
@@ -32,27 +33,28 @@ public class TableTextDisplayRenderer implements Display.DisplayRenderer {
     @Value
     @Builder
     public static class LeftRightTextRow implements TextRow {
+        private boolean     inverted;
         private DisplayText leftBeforeAlign;
         private DisplayText leftAfterAlign;
         private DisplayText rightBeforeAlign;
         private DisplayText rightAfterAlign;
     }
 
-    public static interface TextRenderer {
+    public static interface TextDisplayContent {
         List<TextRow> renderText(int maxRowCount);
     }
 
     public static interface TextRow {
-
+        boolean isInverted();
     }
 
     @Setter
-    private int                fontSize = 10;
+    private int                      fontSize = 10;
     @Setter
-    private String             fontName = null;
-    private final TextRenderer textRenderer;
+    private String                   fontName = null;
+    private final TextDisplayContent textRenderer;
 
-    public TableTextDisplayRenderer(final TextRenderer textRenderer) {
+    public TableTextDisplayContent(final TextDisplayContent textRenderer) {
         this.textRenderer = textRenderer;
     }
 
@@ -68,14 +70,15 @@ public class TableTextDisplayRenderer implements Display.DisplayRenderer {
         final int lineCount = Math.max(height / minLineHeight, 1);
         final int lineHeight;
         final int firstRowPos;
+        final int ascent = plainFontMetrics.getAscent();
+        final int descent = plainFontMetrics.getDescent();
         if (lineCount > 1) {
-            firstRowPos = plainFontMetrics.getAscent();
+            firstRowPos = ascent;
             final int lineSpaceCount = lineCount - 1;
-            final int blankSpace = height
-                    - (plainFontMetrics.getAscent() + plainFontMetrics.getDescent() + lineSpaceCount * plainFontMetrics.getHeight());
+            final int blankSpace = height - (ascent + descent + lineSpaceCount * plainFontMetrics.getHeight());
             lineHeight = plainFontMetrics.getHeight() + blankSpace / lineSpaceCount;
         } else {
-            firstRowPos = plainFontMetrics.getAscent() + height - (plainFontMetrics.getAscent() + plainFontMetrics.getDescent()) / 2;
+            firstRowPos = ascent + height - (ascent + descent) / 2;
             lineHeight = 0;
         }
         final List<TextRow> lines = textRenderer.renderText(lineCount);
@@ -111,7 +114,13 @@ public class TableTextDisplayRenderer implements Display.DisplayRenderer {
         for (int i = 0; i < lines.size(); i++) {
             final TextRow textRow = lines.get(i);
             final int y = firstRowPos + i * lineHeight;
-
+            if (textRow.isInverted()) {
+                graphics.setColor(Color.WHITE);
+                graphics.fillRect(0, y - ascent, width, minLineHeight);
+                graphics.setColor(Color.BLACK);
+            } else {
+                graphics.setColor(Color.WHITE);
+            }
             if (textRow instanceof LeftRightTextRow) {
                 final LeftRightTextRow leftRightTextRow = (LeftRightTextRow) textRow;
                 final DisplayText leftBeforeAlign = leftRightTextRow.getLeftBeforeAlign();

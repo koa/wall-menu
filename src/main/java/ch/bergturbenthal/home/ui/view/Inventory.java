@@ -28,16 +28,18 @@ import com.vaadin.ui.Grid.GridContextClickEvent;
 import com.vaadin.ui.Label;
 import com.vaadin.ui.VerticalLayout;
 
+import ch.bergturbenthal.home.display.DisplayContent;
 import ch.bergturbenthal.home.service.TinkerforgeDiscovery;
 import ch.bergturbenthal.home.service.TinkerforgeDiscovery.TIdentity;
 import ch.bergturbenthal.home.service.impl.Oled128x64Display;
-import ch.bergturbenthal.home.service.impl.TableTextDisplayRenderer;
-import ch.bergturbenthal.home.service.impl.TableTextDisplayRenderer.DisplayText;
-import ch.bergturbenthal.home.service.impl.TableTextDisplayRenderer.LeftRightTextRow;
-import ch.bergturbenthal.home.service.impl.TableTextDisplayRenderer.TextRenderer;
-import ch.bergturbenthal.home.service.impl.TableTextDisplayRenderer.TextRow;
+import ch.bergturbenthal.home.service.impl.TableTextDisplayContent;
+import ch.bergturbenthal.home.service.impl.TableTextDisplayContent.DisplayText;
+import ch.bergturbenthal.home.service.impl.TableTextDisplayContent.LeftRightTextRow;
+import ch.bergturbenthal.home.service.impl.TableTextDisplayContent.TextDisplayContent;
+import ch.bergturbenthal.home.service.impl.TableTextDisplayContent.TextRow;
 import lombok.extern.slf4j.Slf4j;
 import reactor.core.Disposable;
+import reactor.core.publisher.Mono;
 
 @Slf4j
 @SpringView(name = "Inventory")
@@ -64,9 +66,9 @@ public class Inventory extends CustomComponent implements View {
         foundComponentsGrid.addColumn(i -> i.getConnectionAddress().getHostAddress()).setCaption("Connection");
 
         final GridContextMenu<TIdentity> contextMenu = new GridContextMenu<>(foundComponentsGrid);
-        final Map<TIdentity, TableTextDisplayRenderer> renderers = new HashMap<>();
-        final Function<TIdentity, TableTextDisplayRenderer> rendererOfItem = item -> {
-            return renderers.computeIfAbsent(item, k -> new TableTextDisplayRenderer(new TextRenderer() {
+        final Map<TIdentity, TableTextDisplayContent> renderers = new HashMap<>();
+        final Function<TIdentity, TableTextDisplayContent> rendererOfItem = item -> {
+            return renderers.computeIfAbsent(item, k -> new TableTextDisplayContent(new TextDisplayContent() {
 
                 @Override
                 public List<TextRow> renderText(final int maxRowCount) {
@@ -74,7 +76,7 @@ public class Inventory extends CustomComponent implements View {
                             LeftRightTextRow.builder().leftAfterAlign(DisplayText.plainText("UID")).rightAfterAlign(DisplayText.boldText(k.getUid()))
                                     .build(),
                             LeftRightTextRow.builder().leftAfterAlign(DisplayText.plainText("HW"))
-                                    .rightAfterAlign(DisplayText.boldText(k.getHwVersion())).build(),
+                                    .rightAfterAlign(DisplayText.boldText(k.getHwVersion())).inverted(true).build(),
                             LeftRightTextRow.builder().leftAfterAlign(DisplayText.plainText("FW"))
                                     .rightAfterAlign(DisplayText.boldText(k.getFwVersion())).build(),
                             LeftRightTextRow.builder().leftAfterAlign(DisplayText.plainText("IP"))
@@ -99,15 +101,15 @@ public class Inventory extends CustomComponent implements View {
                     final BrickletOLED128x64 oledDevice = (BrickletOLED128x64) device;
                     final Oled128x64Display display = new Oled128x64Display(oledDevice);
                     menu.addItem("Identify", selectedItem -> {
-                        final TableTextDisplayRenderer renderer = rendererOfItem.apply(item);
-                        display.draw(renderer);
+                        final TableTextDisplayContent renderer = rendererOfItem.apply(item);
+                        display.setDisplayContent(Mono.<DisplayContent> just(renderer).flux());
                     });
                     final MenuItem fontMenu = menu.addItem("Font", null);
                     for (final String fontName : GraphicsEnvironment.getLocalGraphicsEnvironment().getAvailableFontFamilyNames()) {
                         fontMenu.addItem(fontName, selectedItem -> {
-                            final TableTextDisplayRenderer renderer = rendererOfItem.apply(item);
+                            final TableTextDisplayContent renderer = rendererOfItem.apply(item);
                             renderer.setFontName(fontName);
-                            display.draw(renderer);
+                            display.setDisplayContent(Mono.<DisplayContent> just(renderer).flux());
                         });
                     }
 
@@ -115,9 +117,9 @@ public class Inventory extends CustomComponent implements View {
                     for (int i = 8; i < 20; i++) {
                         final int fontSize = i;
                         fontSizeMenu.addItem("" + i, selectedItem -> {
-                            final TableTextDisplayRenderer renderer = rendererOfItem.apply(item);
+                            final TableTextDisplayContent renderer = rendererOfItem.apply(item);
                             renderer.setFontSize(fontSize);
-                            display.draw(renderer);
+                            display.setDisplayContent(Mono.<DisplayContent> just(renderer).flux());
                         });
                     }
                     final MenuItem brightnessMenu = menu.addItem("Brightness", null);

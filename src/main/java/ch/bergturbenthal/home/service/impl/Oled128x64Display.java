@@ -3,15 +3,21 @@ package ch.bergturbenthal.home.service.impl;
 import java.awt.Graphics;
 import java.awt.Graphics2D;
 import java.awt.image.BufferedImage;
+import java.io.Closeable;
+import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Consumer;
 
 import com.tinkerforge.BrickletOLED128x64;
 import com.tinkerforge.TinkerforgeException;
 
-import ch.bergturbenthal.home.service.Display;
+import ch.bergturbenthal.home.display.Display;
+import ch.bergturbenthal.home.display.DisplayContent;
 import lombok.extern.slf4j.Slf4j;
+import reactor.core.Disposable;
+import reactor.core.publisher.Flux;
 
 @Slf4j
-public class Oled128x64Display implements Display {
+public class Oled128x64Display implements Display, Closeable {
     private static final short HEIGHT = 64;
 
     private static final short WIDTH  = 128;
@@ -64,22 +70,36 @@ public class Oled128x64Display implements Display {
         }
     }
 
-    private final BrickletOLED128x64 bricklet;
+    private final BrickletOLED128x64          bricklet;
+    private final AtomicReference<Disposable> pendingDisposable    = new AtomicReference<Disposable>(null);
+    private final Consumer<Disposable>        subscriptionConsumer = t -> {
+                                                                       final Disposable oldDisposable = pendingDisposable.getAndSet(t);
+                                                                       if (oldDisposable != null) {
+                                                                           oldDisposable.dispose();
+                                                                       }
+                                                                   };
 
     public Oled128x64Display(final BrickletOLED128x64 bricklet) {
         this.bricklet = bricklet;
     }
 
     @Override
-    public void draw(final DisplayRenderer renderer) {
-        try {
-            final BufferedImage image = new BufferedImage(WIDTH, HEIGHT, BufferedImage.TYPE_BYTE_BINARY);
-            final Graphics g = image.createGraphics();
-            renderer.render((Graphics2D) g, WIDTH, HEIGHT);
-            g.dispose();
-            drawBuffer(bricklet, image);
-        } catch (final TinkerforgeException e) {
-            log.error("Cannot write oled", e);
-        }
+    public void close() {
+        subscriptionConsumer.accept(null);
+    }
+
+    @Override
+    public void setDisplayContent(final Flux<DisplayContent> content) {
+        subscriptionConsumer.accept(content.subscribe(c -> {
+            try {
+                final BufferedImage image = new BufferedImage(WIDTH, HEIGHT, BufferedImage.TYPE_BYTE_BINARY);
+                final Graphics g = image.createGraphics();
+                c.render((Graphics2D) g, WIDTH, HEIGHT);
+                g.dispose();
+                drawBuffer(bricklet, image);
+            } catch (final TinkerforgeException e) {
+                log.error("Cannot write oled", e);
+            }
+        }));
     }
 }
