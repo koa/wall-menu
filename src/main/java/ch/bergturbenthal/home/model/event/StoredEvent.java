@@ -9,8 +9,12 @@ import com.fasterxml.jackson.annotation.JsonTypeInfo;
 @JsonSubTypes({
         @JsonSubTypes.Type(AddLightEvent.class),
         @JsonSubTypes.Type(RemoveLightEvent.class),
-        @JsonSubTypes.Type(UpdateLightData.class),
-        @JsonSubTypes.Type(AddLightEvent.class) })
+        @JsonSubTypes.Type(UpdateLightDataEvent.class),
+        @JsonSubTypes.Type(AddTerminalEvent.class),
+        @JsonSubTypes.Type(RemoveTerminalEvent.class),
+        @JsonSubTypes.Type(UpdateTerminalDataEvent.class)
+
+})
 public interface StoredEvent {
     Instant getTimestamp();
 }

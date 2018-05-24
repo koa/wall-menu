@@ -7,7 +7,7 @@ import ch.bergturbenthal.home.model.event.thing.LightId;
 import lombok.Value;
 
 @Value
-public class UpdateLightData implements StoredEvent {
+public class UpdateLightDataEvent implements StoredEvent {
     private Instant   timestamp;
     private LightId   id;
     private LightData data;

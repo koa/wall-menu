@@ -1,4 +1,4 @@
-package ch.bergturbenthal.home;
+package ch.bergturbenthal.home.model.settings;
 
 import java.util.List;
 

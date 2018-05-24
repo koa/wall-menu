@@ -23,7 +23,7 @@ import com.tinkerforge.IPConnection;
 import com.tinkerforge.NetworkException;
 import com.tinkerforge.NotConnectedException;
 
-import ch.bergturbenthal.home.TinkerforgeProperties;
+import ch.bergturbenthal.home.model.settings.TinkerforgeProperties;
 import ch.bergturbenthal.home.service.TinkerforgeDiscovery;
 import lombok.Value;
 import lombok.extern.slf4j.Slf4j;
